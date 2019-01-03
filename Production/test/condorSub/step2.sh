@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # check for incorrect pilot cert
-vomsident = $(voms-proxy-info -identity)
+vomsident=$(voms-proxy-info -identity)
 echo $vomsident
 if [[ $vomsident = *"cmsgli"* ]]; then
 	# this is the exit code for "User is not authorized to write to destination site."
@@ -75,11 +75,17 @@ if [[ $vomsident = *"cmsgli"* ]]; then
 fi
 
 # copy output to eos
-echo "xrdcp output for condor"
+# echo "xrdcp output for condor"
+echo "gfal-copy output for condor"
+if [ -e "/cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/3.3/current/el6-x86_64/setup.sh" ]; then
+    . /cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/3.3/current/el6-x86_64/setup.sh
+fi
 for FILE in *.root
 do
-  echo "xrdcp -f ${FILE} ${OUTDIR}/${FILE}"
-  xrdcp -f ${FILE} ${OUTDIR}/${FILE} 2>&1
+  #echo "xrdcp -f ${FILE} ${OUTDIR}/${FILE}"
+  #xrdcp -f ${FILE} ${OUTDIR}/${FILE} 2>&1
+  echo gfal-copy -n 1 "file:////$PWD/${FILE}" "${OUTDIR}${FILE}"
+  gfal-copy -n 1 "file:////$PWD/${FILE}" "${OUTDIR}${FILE}"
   XRDEXIT=$?
   if [[ $XRDEXIT -ne 0 ]]; then
     rm *.root
