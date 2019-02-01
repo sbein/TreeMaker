@@ -4,6 +4,7 @@
 
 import sys,os,pycurl,json,cStringIO,subprocess
 from optparse import OptionParser
+from collections import OrderedDict
 from TreeMaker.Production.tm_common import printGetPyDictHeader
 from Condor.Production.parseConfig import list_callback
 
@@ -59,6 +60,9 @@ class pyline:
         self.dataset_names.extend([str(x) for x in dataset_names])
         self.pu_valids.extend(pu_valids)
 
+    def get_process(self):
+        return self.dataset_names[0].split('/')[1]
+
     def __repr__(self):
         return "%s(%r, %r)" % (self.__class__.__name__, self.dataset_names,self.pu_valids)
 
@@ -111,7 +115,7 @@ def preq(req,gensim,comment='',debug=False):
             tot = igs['total_events']
             pct_done = float(cmpl)/float(tot)*100.
             break
-    type = 'None'
+    type = 'None '
     if ('MiniAOD' in req['member_of_campaign']): type = 'MiniAOD '
     elif ('DRPremix' in req['member_of_campaign']): type = 'DIG-REC '
     elif ('GS' in req['member_of_campaign']): type = 'GEN-SIM '
@@ -150,6 +154,7 @@ def main(args):
     parser.add_option("-p", "--pu", dest="pu", default="", help="string to check for in pu dataset to determine validity (default = %default)")
     parser.add_option("-m", "--make", dest="make_dict", default="", help="if set, make a get_py.py dictionary out of the finished datasets (default = %default)")
     parser.add_option("-i", "--inclusive", dest="inclusive", default=False, action="store_true", help="if make is set, include the finished_invalid datasets in the dict (default = %default)")
+    parser.add_option("-g", "--grep", dest="grep", default="", type="string", action='callback', callback=list_callback, help="comma separated list of patterns in the dataset name to select for (default = %default). Watch for dangling commas!")
     parser.add_option("-v", "--vgrep", dest="vgrep", default="", type="string", action='callback', callback=list_callback, help="comma separated list of patterns in the dataset name to ignore (default = %default). Watch for dangling commas!")
     parser.add_option("--miniaod", dest="miniaod", default="RunIISummer16MiniAODv2", help="miniAOD campaign name (default = %default)")
     parser.add_option("--digireco", dest="digireco", default="RunIISummer16DR80*", help="DIGI-RECO campaign name (default = %default)")
@@ -229,7 +234,7 @@ def main(args):
         goodcols = []
         badcols = []
         invalidcols = []
-        getpylines = []
+        getpylines = OrderedDict()
         for ext in datasets[ds]:
             # keep track of all found dataset names (wildcard support)
             found_list = set()
@@ -246,13 +251,17 @@ def main(args):
             if req_mini:
                 for ireq in req_mini:
                     dname = ireq['dataset_name']
-                    if any(pattern in dname for pattern in options.vgrep):
+                    output_dataset = ireq['output_dataset']
+                    if not any(any(pattern in ds for ds in output_dataset) for pattern in options.grep):
+                        if options.verbose: print "\tSkipping",dname,"because of grep"
+                        continue
+                    if any(any(pattern in ds for ds in output_dataset) for pattern in options.vgrep):
                         if options.verbose: print "\tSkipping",dname,"because of vgrep"
                         continue
                     if dname in found_list: continue
                     found_list.add(dname)
                     hlight = col.red
-                    pu_valid = pu_dataset_validity(ireq,options.digireco,options.pu,options.debug)
+                    pu_valid = pu_dataset_validity(ireq,options.digireco,options.pu,options.debug) if options.pu!="" else True
                     toprint = preq(ireq,options.gensim,'' if pu_valid else 'Invalid Pileup Dataset',options.debug)
                     if not pu_valid and ireq['status']!='new': hlight = col.yellow
                     elif ireq['status']=='done': hlight = col.green
@@ -263,13 +272,13 @@ def main(args):
                         else: badcols.append(toprint)
 
                         if ireq['status']=='done' and len(options.make_dict)>0:
-                            output_dataset = ireq['output_dataset']
-                            if ext == 0:
-                                if pu_valid: getpylines.append(pyline(output_dataset,pu_valid))
-                                elif options.inclusive and not pu_valid: getpylines.append(pyline(output_dataset,pu_valid))
+                            PD = output_dataset[0].split('/')[1]
+                            if len(getpylines)==0 or PD not in getpylines.keys():
+                                if pu_valid: getpylines[PD] = pyline(output_dataset,pu_valid)
+                                elif options.inclusive and not pu_valid: getpylines[PD] = pyline(output_dataset,pu_valid)
                             else:
-                                if pu_valid: getpylines[-1].append(output_dataset,pu_valid)
-                                elif options.inclusive and not pu_valid: getpylines[-1].append(output_dataset,pu_valid)
+                                if pu_valid: getpylines[PD].append(output_dataset,pu_valid)
+                                elif options.inclusive and not pu_valid: getpylines[PD].append(output_dataset,pu_valid)
 
                     else:
                         allcols.append(hlight+toprint+col.endc)
@@ -305,7 +314,7 @@ def main(args):
             if len(allcols)>0: print '\n'.join(sorted(allcols))
     
         if len(options.make_dict)>0 and len(getpylines)>0:
-            getpyfile.write('\n'.join(sorted([str(item) for item in getpylines]))+'\n')
+            getpyfile.write('\n'.join(sorted([str(item) for key, item in getpylines.iteritems()]))+'\n')
 
     # print sorted output
     if options.file:

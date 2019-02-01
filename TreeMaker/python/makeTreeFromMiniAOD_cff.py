@@ -233,11 +233,17 @@ def makeTreeFromMiniAOD(self,process):
     JetTag = cms.InputTag("slimmedJets")
     METTag = cms.InputTag('slimmedMETs')
     # get rid of the pointless low-pt AK8 jets ASAP
+    # also get rid of jets w/ inf constituents (CutParser doesn't support isinf or bitwise operations, so use this hack)
     process.slimmedJetsAK8Good = cms.EDFilter("PATJetSelector",
         src = cms.InputTag("slimmedJetsAK8"),
-        cut = cms.string("isPFJet"),
+        cut = cms.string("isPFJet && abs(daughter(0).energy)!=exp(1000)"),
     )
     JetAK8Tag = cms.InputTag('slimmedJetsAK8Good')
+    process.slimmedJetsAK8Inf = cms.EDFilter("PATJetSelector",
+        src = cms.InputTag("slimmedJetsAK8"),
+        cut = cms.string("isPFJet && abs(daughter(0).energy)==exp(1000)"),
+    )
+    JetAK8TagInf = cms.InputTag('slimmedJetsAK8Inf')
     SubjetTag = cms.InputTag('slimmedJetsAK8PFPuppiSoftDropPacked:SubJets')
 
     process.load("CondCore.DBCommon.CondDBCommon_cfi")
@@ -492,6 +498,8 @@ def makeTreeFromMiniAOD(self,process):
         hovere_constant    = cms.bool(False),
         # from: https://github.com/cms-sw/cmssw/blob/1fbada01f097fbd446e7a431140f83bc9f5a0ff0/RecoEgamma/ElectronIdentification/data/Fall17/effAreaElectrons_cone03_pfNeuHadronsAndPhotons_94X.txt
         electronEAValues   = cms.vdouble(0.1440, 0.1562, 0.1032, 0.0859, 0.1116, 0.1321, 0.1654),
+    )
+    TMeras.TM2017.toModify(process.LeptonsNew,
         # new collection from reco tool (to get user floats)
         ElectronTag = cms.InputTag('slimmedElectrons','',process.name_()),
     )
@@ -620,7 +628,7 @@ def makeTreeFromMiniAOD(self,process):
     process.TriggerProducer = triggerProducer.clone(
         trigTagArg1     = cms.string('TriggerResults'),
         trigTagArg2     = cms.string(''),
-        trigTagArg3     = cms.string('HLT'),
+        trigTagArg3     = cms.string(self.hlttagname),
         prescaleTagArg1  = cms.string('patTrigger'),
         prescaleTagArg2  = cms.string(''),
         prescaleTagArg3  = cms.string(''),
@@ -970,8 +978,7 @@ def makeTreeFromMiniAOD(self,process):
         GenMETTag = cms.InputTag("slimmedMETs","",self.tagname), #original collection used deliberately here
         JetTag = cms.InputTag('HTJets'),
         geninfo = cms.untracked.bool(self.geninfo),
-        InfTagAK4 = cms.InputTag('GoodJets:JetInfCand'),
-        InfTagAK8 = cms.InputTag('GoodJetsAK8:JetInfCand'),
+        InfTagAK8 = JetAK8TagInf,
     )
     self.VarsDouble.extend(['MET:Pt(MET)','MET:Phi(METPhi)','MET:CaloPt(CaloMET)','MET:CaloPhi(CaloMETPhi)','MET:PFCaloPtRatio(PFCaloMETRatio)','MET:Significance(METSignificance)'])
 #    self.VarsDouble.extend(['MET:RawPt(RawMET)','MET:RawPhi(RawMETPhi)'])
