@@ -63,6 +63,11 @@ CMSEXIT=$?
 
 rm runMakeTreeFromMiniAOD_cfg.py
 
+if [[ $CMSEXIT -eq 77 ]]; then
+  echo "file already processed"
+  exit 0
+fi
+
 if [[ $CMSEXIT -ne 0 ]]; then
   rm *.root
   echo "exit code $CMSEXIT, skipping xrdcp"
