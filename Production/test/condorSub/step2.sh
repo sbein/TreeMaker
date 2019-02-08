@@ -74,6 +74,25 @@ if [[ $vomsident = *"cmsgli"* ]]; then
 	exit 60322
 fi
 
+# write short test script to check if output file has track collection:
+echo "
+import os, sys, glob
+from ROOT import *
+output_filename = glob.glob('*.root')[0]
+fin = TFile(output_filename, 'read')
+tree = fin.Get('TreeMaker2/PreSelection')
+if tree.GetBranch('tracks'):
+    print 'File OK'
+else:
+    print 'no tracks collection, deleting output file'
+    os.system('rm ' + output_filename)
+    sys.exit(919191)
+" > check.py
+python checkFile.py
+if [[ $? -ne 0 ]]; then
+    exit 919191
+fi
+
 # copy output to eos
 # echo "xrdcp output for condor"
 echo "gfal-copy output for condor"
