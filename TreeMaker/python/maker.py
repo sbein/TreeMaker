@@ -61,8 +61,8 @@ def quitIfFileAlreadyProcessed(output_filename):
     status_viktor, output = commands.getstatusoutput("gfal-ls srm://dcache-se-cms.desy.de/pnfs/desy.de/cms/tier2/store/user/vkutzner/NtupleHub/" + output_filename + ".root")
     
     if status_sam == 0 or status_viktor == 0:
-        print "Output file already exists! Exiting"
-        quit(929292)
+        print "Output file already exists. That's ok, exiting"
+        quit(0)
     else:
         print "OK, proceeding"
 
