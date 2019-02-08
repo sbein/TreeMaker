@@ -38,6 +38,11 @@ echo "PROCESS:    $PROCESS"
 echo "REDIR:      $REDIR"
 echo ""
 
+# source gfal tools
+if [ -e "/cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/3.3/current/el6-x86_64/setup.sh" ]; then
+    . /cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/3.3/current/el6-x86_64/setup.sh
+fi
+
 # link files from CMSSW dir
 ln -s ${CMSSWVER}/src/TreeMaker/Production/test/data
 ln -s ${CMSSWVER}/src/TreeMaker/Production/test/runMakeTreeFromMiniAOD_cfg.py
@@ -96,9 +101,6 @@ fi
 # copy output to eos
 # echo "xrdcp output for condor"
 echo "gfal-copy output for condor"
-if [ -e "/cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/3.3/current/el6-x86_64/setup.sh" ]; then
-    . /cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/3.3/current/el6-x86_64/setup.sh
-fi
 for FILE in *.root
 do
   #echo "xrdcp -f ${FILE} ${OUTDIR}/${FILE}"
