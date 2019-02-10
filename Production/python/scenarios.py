@@ -79,6 +79,20 @@ class Scenario:
                 era="Run2_2016",
                 localera="TM2016",
             )
+        elif sname == "Summer16MiniAODv3Fastsig":
+            self.set_vars(
+                globaltag="94X_mcRun2_asymptotic_v3",
+                tagname="PAT",
+                hlttagname="HLT",
+                geninfo=True,
+                fastsim=True,
+                signal=True,
+                jecfile="data/jec/Summer16_07Aug2017_V10_MC",
+                jerfile="data/jer/Summer16_25nsV1_MC",
+                pufile="TreeMaker/Production/test/data/PileupHistograms_0721_63mb_pm5.root",
+                era="Run2_2016",
+                localera="TM2016",
+            )
         elif sname == "2016MiniAODv3":
             self.set_vars(
                 globaltag="94X_dataRun2_v10",
@@ -117,6 +131,21 @@ class Scenario:
                 era="Run2_2017",
                 localera="TM2017",
             )
+        elif sname == "Fall17Fastsig":
+            self.set_vars(
+                globaltag="94X_mc2017_realistic_v13",
+                tagname="PAT",
+                hlttagname="RECO",
+                geninfo=True,
+                fastsim=True,
+                signal=True,
+                jecfile="data/jec/Fall17_17Nov2017_V32_94X_MC",
+                jerfile="data/jer/Fall17_V3_94X_MC",
+                pufile="TreeMaker/Production/test/data/PileupHistograms_0328_63mb_pm5.root",
+                wrongpufile="TreeMaker/Production/test/data/RunIIFall17MiniAODv2PU.root",
+                era="Run2_2017",
+                localera="TM2017",
+            )
         elif sname == "2017ReReco31Mar":
             self.set_vars(
                 globaltag="94X_dataRun2_v6",
@@ -127,6 +156,31 @@ class Scenario:
                 residual=True,
                 era="Run2_2017",
                 localera="TM2017",
+            )
+        elif sname == "Autumn18":
+            self.set_vars(
+                globaltag="102X_upgrade2018_realistic_v16",
+                tagname="PAT",
+                hlttagname="HLT",
+                geninfo=True,
+                jecfile="data/jec/Fall17_17Nov2017_V32_94X_MC",
+                jerfile="data/jer/Fall17_V3_94X_MC",
+                pufile="TreeMaker/Production/test/data/PileupHistograms_0118_63mb_pm5.root",
+                era="Run2_2018",
+                localera="TM2018",
+            )
+        elif sname == "Autumn18sig":
+            self.set_vars(
+                globaltag="102X_upgrade2018_realistic_v16",
+                tagname="PAT",
+                hlttagname="HLT",
+                geninfo=True,
+                signal=True,
+                jecfile="data/jec/Fall17_17Nov2017_V32_94X_MC",
+                jerfile="data/jer/Fall17_V3_94X_MC",
+                pufile="TreeMaker/Production/test/data/PileupHistograms_0118_63mb_pm5.root",
+                era="Run2_2018",
+                localera="TM2018",
             )
         elif sname == "2018B26Sep":
             self.set_vars(
@@ -142,6 +196,28 @@ class Scenario:
         elif sname == "2018B26SepHEM":
             self.set_vars(
                 globaltag="102X_dataRun2_PromptLike_HEfail_v1",
+                tagname="RECO",
+                hlttagname="HLT",
+                jsonfile="data/Cert_314472-325175_13TeV_PromptReco_Collisions18_JSON.txt",
+                jecfile="data/jec/Fall17_17Nov2017_V32_102X_DATA",
+                residual=True,
+                era="Run2_2018",
+                localera="TM2018",
+            )
+        elif sname == "2018PromptReco":
+            self.set_vars(
+                globaltag="102X_dataRun2_Prompt_v11",
+                tagname="RECO",
+                hlttagname="HLT",
+                jsonfile="data/Cert_314472-325175_13TeV_PromptReco_Collisions18_JSON.txt",
+                jecfile="data/jec/Fall17_17Nov2017_V32_102X_DATA",
+                residual=True,
+                era="Run2_2018",
+                localera="TM2018",
+            )
+        elif sname == "2018ReReco17Sep":
+            self.set_vars(
+                globaltag="102X_dataRun2_Sep2018Rereco_v1",
                 tagname="RECO",
                 hlttagname="HLT",
                 jsonfile="data/Cert_314472-325175_13TeV_PromptReco_Collisions18_JSON.txt",

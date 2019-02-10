@@ -38,6 +38,11 @@ echo "PROCESS:    $PROCESS"
 echo "REDIR:      $REDIR"
 echo ""
 
+# source gfal tools
+if [ -e "/cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/3.3/current/el6-x86_64/setup.sh" ]; then
+    . /cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/3.3/current/el6-x86_64/setup.sh
+fi
+
 # link files from CMSSW dir
 ln -s ${CMSSWVER}/src/TreeMaker/Production/test/data
 ln -s ${CMSSWVER}/src/TreeMaker/Production/test/runMakeTreeFromMiniAOD_cfg.py
@@ -58,6 +63,11 @@ CMSEXIT=$?
 
 rm runMakeTreeFromMiniAOD_cfg.py
 
+if [[ $CMSEXIT -eq 77 ]]; then
+  echo "file already processed"
+  exit 0
+fi
+
 if [[ $CMSEXIT -ne 0 ]]; then
   rm *.root
   echo "exit code $CMSEXIT, skipping xrdcp"
@@ -74,12 +84,28 @@ if [[ $vomsident = *"cmsgli"* ]]; then
 	exit 60322
 fi
 
+# write short test script to check if output file has track collection:
+echo "
+import os, sys, glob
+from ROOT import *
+output_filename = glob.glob('*.root')[0]
+fin = TFile(output_filename, 'read')
+tree = fin.Get('TreeMaker2/PreSelection')
+if tree.GetBranch('tracks'):
+    print 'File OK'
+else:
+    print 'no tracks collection, deleting output file'
+    os.system('rm ' + output_filename)
+    sys.exit(919191)
+" > check.py
+python checkFile.py
+if [[ $? -ne 0 ]]; then
+    exit 919191
+fi
+
 # copy output to eos
 # echo "xrdcp output for condor"
 echo "gfal-copy output for condor"
-if [ -e "/cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/3.3/current/el6-x86_64/setup.sh" ]; then
-    . /cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/3.3/current/el6-x86_64/setup.sh
-fi
 for FILE in *.root
 do
   #echo "xrdcp -f ${FILE} ${OUTDIR}/${FILE}"

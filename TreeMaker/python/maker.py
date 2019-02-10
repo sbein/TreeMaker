@@ -50,7 +50,23 @@ def getAODfromMiniAODPath(datasetPathMiniAOD):
     # avoid duplicate entries:
     print 'obtained ',len(aodFiles),',file-long aod set:', aodFiles
     return list(set(aodFiles))
+
+
+def quitIfFileAlreadyProcessed(output_filename):
+
+    import commands
+
+    print "Checking if output file has been already processed"
+    status_sam, output = commands.getstatusoutput("gfal-ls srm://dcache-se-cms.desy.de/pnfs/desy.de/cms/tier2/store/user/sbein/NtupleHub/Production2016v2/" + output_filename + ".root")
+    status_viktor, output = commands.getstatusoutput("gfal-ls srm://dcache-se-cms.desy.de/pnfs/desy.de/cms/tier2/store/user/vkutzner/NtupleHub/" + output_filename + ".root")
     
+    if status_sam == 0 or status_viktor == 0:
+        print "Output file already exists. OK, exiting"
+        quit(77)
+    else:
+        print "OK, proceeding"
+
+
 class maker:
     def __init__(self,parameters):
         self.parameters = parameters
@@ -116,8 +132,7 @@ class maker:
         self.getParamDefault("localera",self.scenario.localera)
         
         # temporary redirector fix
-        # fastsim signal is phedexed to LPC Tier3
-        self.getParamDefault("redir", "root://cmseos.fnal.gov/" if self.fastsim and self.signal else "root://cmsxrootd.fnal.gov/")
+        self.getParamDefault("redir", "root://cmsxrootd.fnal.gov/")
         # handle site name usage
         if self.redir[0]=="T":
             self.redir = "root://cmsxrootd.fnal.gov//store/test/xrootd/"+self.redir
@@ -136,6 +151,7 @@ class maker:
         if self.dataset!=[] :    
             self.readFiles.extend( [self.dataset] )
         for irf, rf in enumerate(self.readFiles):
+            quitIfFileAlreadyProcessed(self.outfile)
             if '/store/' in rf: self.readFiles_sidecar += getAODfromMiniAODPath(rf)
             else: 
             	shpingy = rf.replace('mini','').replace('step4','step3')
