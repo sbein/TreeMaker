@@ -38,11 +38,6 @@ echo "PROCESS:    $PROCESS"
 echo "REDIR:      $REDIR"
 echo ""
 
-# source gfal tools
-if [ -e "/cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/3.3/current/el6-x86_64/setup.sh" ]; then
-    . /cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/3.3/current/el6-x86_64/setup.sh
-fi
-
 # link files from CMSSW dir
 ln -s ${CMSSWVER}/src/TreeMaker/Production/test/data
 ln -s ${CMSSWVER}/src/TreeMaker/Production/test/runMakeTreeFromMiniAOD_cfg.py
@@ -98,18 +93,19 @@ else:
     os.system('rm ' + output_filename)
     sys.exit(919191)
 " > check.py
-python checkFile.py
+python check.py
 if [[ $? -ne 0 ]]; then
-    exit 919191
+	# this is the exit code for missing branch "tracks" in output file:
+    exit 51919
 fi
 
 # copy output to eos
-# echo "xrdcp output for condor"
 echo "gfal-copy output for condor"
+if [ -e "/cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/3.3/current/el6-x86_64/setup.sh" ]; then
+    . /cvmfs/oasis.opensciencegrid.org/mis/osg-wn-client/3.3/current/el6-x86_64/setup.sh
+fi
 for FILE in *.root
 do
-  #echo "xrdcp -f ${FILE} ${OUTDIR}/${FILE}"
-  #xrdcp -f ${FILE} ${OUTDIR}/${FILE} 2>&1
   echo gfal-copy -n 1 "file:////$PWD/${FILE}" "${OUTDIR}${FILE}"
   gfal-copy -n 1 "file:////$PWD/${FILE}" "${OUTDIR}${FILE}"
   XRDEXIT=$?
