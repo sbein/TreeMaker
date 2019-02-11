@@ -55,16 +55,16 @@ def getAODfromMiniAODPath(datasetPathMiniAOD):
 def quitIfFileAlreadyProcessed(output_filename):
 
     import commands
-
     print "Checking if output file has been already processed"
-    status_sam, output = commands.getstatusoutput("gfal-ls srm://dcache-se-cms.desy.de/pnfs/desy.de/cms/tier2/store/user/sbein/NtupleHub/Production2016v2/" + output_filename + ".root")
-    status_viktor, output = commands.getstatusoutput("gfal-ls srm://dcache-se-cms.desy.de/pnfs/desy.de/cms/tier2/store/user/vkutzner/NtupleHub/" + output_filename + ".root")
+    status_sam, output = commands.getstatusoutput("xrdfs root://dcache-cms-xrootd.desy.de/ stat /pnfs/desy.de/cms/tier2/store/user/sbein/NtupleHub/Production2016v2/" + output_filename + ".root")
+    status_viktor, output = commands.getstatusoutput("xrdfs root://dcache-cms-xrootd.desy.de/ stat /pnfs/desy.de/cms/tier2/store/user/vkutzner/NtupleHub/" + output_filename + ".root")
     
+    # the exit code of xrdfs is zero if the file exists:
     if status_sam == 0 or status_viktor == 0:
-        print "Output file already exists. OK, exiting"
+        print "Output file already exists. Exiting"
         quit(77)
     else:
-        print "OK, proceeding"
+        print "Proceeding..."
 
 
 class maker:
