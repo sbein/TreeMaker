@@ -87,7 +87,8 @@ def makeTreeFromMiniAOD(self,process):
             self.VectorDouble.extend(['IsoTrackProducer:tracks@neutralPtSum(tracks_neutralPtSum)'])
             self.VectorDouble.extend(['IsoTrackProducer:tracks@neutralWithoutGammaPtSum(tracks_neutralWithoutGammaPtSum)'])
             if not self.fastsim: 
-                self.VectorDouble.extend(['IsoTrackProducer:tracks@deDxHarmonic2(tracks_deDxHarmonic2)']) 
+                self.VectorDouble.extend(['IsoTrackProducer:tracks@deDxHarmonic2strips(tracks_deDxHarmonic2strips)']) 
+                self.VectorDouble.extend(['IsoTrackProducer:tracks@deDxHarmonic2pixel(tracks_deDxHarmonic2pixel)'])                
             self.VectorBool.extend(['IsoTrackProducer:tracks@passExo16044DeadNoisyECALVeto(tracks_passExo16044DeadNoisyECALVeto)']) 
             self.VectorBool.extend(['IsoTrackProducer:tracks@passExo16044GapsVeto(tracks_passExo16044GapsVeto)'])
             self.VectorBool.extend(['IsoTrackProducer:tracks@passPFCandVeto(tracks_passPFCandVeto)'])  

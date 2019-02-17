@@ -46,6 +46,23 @@
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "./DataFormats/ParticleFlowCandidate/interface/PFCandidate.h"
 
+#include "DataFormats/DetId/interface/DetId.h"
+
+
+#include "DataFormats/Common/interface/Association.h"
+#include "DataFormats/Common/interface/RefVector.h"
+
+#include "RecoTracker/DeDx/interface/DeDxTools.h"
+
+#include "DataFormats/Candidate/interface/LeafCandidate.h"
+#include "DataFormats/TrackReco/interface/Track.h"
+#include "DataFormats/TrackReco/interface/TrackBase.h"
+#include "DataFormats/TrackReco/interface/HitPattern.h"
+#include "DataFormats/PatCandidates/interface/PackedCandidate.h"
+#include "DataFormats/PatCandidates/interface/PFIsolation.h"
+
+#include "DataFormats/PatCandidates/interface/IsolatedTrack.h"
+
 //
 // class declaration
 //
@@ -61,6 +78,7 @@ public:
 private:
   void produce(edm::StreamID, edm::Event&, const edm::EventSetup&) const override;
     
+  float getDeDx(const reco::DeDxHitInfo *hitInfo, bool, bool) const;
   edm::EDGetTokenT<std::vector<reco::Track>> selectedTracksToken;
   edm::EDGetTokenT<std::vector<reco::GsfElectron>> electronsToken;
   edm::EDGetTokenT<std::vector<reco::Muon>> muonsToken;
@@ -75,7 +93,15 @@ private:
   edm::EDGetTokenT<std::vector<reco::CaloJet>> caloJetsToken;
   edm::EDGetTokenT<reco::VertexCollection> PrimVtxToken;
   edm::EDGetTokenT<std::vector<reco::PFCandidate>> pfCandsToken;
-
+  
+  
+  //from pat de/dx
+    //Pat iso track
+          edm::EDGetTokenT<edm::ValueMap<reco::DeDxData> > gt2dedxStrip_;
+          edm::EDGetTokenT<edm::ValueMap<reco::DeDxData> > gt2dedxPixel_;
+          edm::EDGetTokenT<reco::DeDxHitInfoAss> gt2dedxHitInfo_;
+          edm::EDGetTokenT<edm::ValueMap<int> >  gt2dedxHitInfoPrescale_; 
+  //from pat de/dx
 
 };
 
@@ -117,7 +143,12 @@ private:
   bool passExo16044GapsVeto;
   bool passExo16044DeadNoisyECALVeto;
   bool passPFCandVeto;
-
+  
+  //Pat iso track          
+          bool addPrescaledDeDxTracks_;
+          bool usePrecomputedDeDxStrip_;
+          bool usePrecomputedDeDxPixel_;
+  //Pat iso track
 //
 // static data member definitions
 //
@@ -146,7 +177,8 @@ IsoTrackProducer::IsoTrackProducer(const edm::ParameterSet& iConfig)
   produces<std::vector<double> >         ("tracks@trackJetIso");
   produces<std::vector<double> >         ("tracks@matchedCaloEnergy");
   produces<std::vector<double> >         ("tracks@matchedCaloEnergyJets");
-  produces<std::vector<double> >         ("tracks@deDxHarmonic2");
+  produces<std::vector<double> >         ("tracks@deDxHarmonic2strips");
+  produces<std::vector<double> >         ("tracks@deDxHarmonic2pixel");  
   produces<std::vector<double> >         ("tracks@chargedPtSum");
   produces<std::vector<double> >         ("tracks@neutralPtSum");
   produces<std::vector<double> >         ("tracks@neutralWithoutGammaPtSum");
@@ -186,8 +218,13 @@ IsoTrackProducer::IsoTrackProducer(const edm::ParameterSet& iConfig)
   pfCandsToken = consumes<std::vector<reco::PFCandidate>>(iConfig.getParameter<edm::InputTag>("selectedPFCand"));
 
   
-  edm::InputTag estimatorTag("dedxHarmonic2");
-  consumes<edm::ValueMap<reco::DeDxData>>(estimatorTag);
+  //edm::InputTag estimatorTag("dedxHarmonic2");
+  //consumes<edm::ValueMap<reco::DeDxData>>(estimatorTag);
+
+  
+  
+  edm::InputTag dEdxTag("dedxHitInfo");
+  consumes<reco::DeDxHitInfoAss>(dEdxTag);
 
   minTrackPt = iConfig.getParameter<double>("minTrackPt");
   maxTrackEta = iConfig.getParameter<double>("maxTrackEta");
@@ -210,8 +247,18 @@ IsoTrackProducer::IsoTrackProducer(const edm::ParameterSet& iConfig)
 
   useCaloJetsInsteadOfHits = iConfig.getParameter<bool>("useCaloJetsInsteadOfHits");
   doDeDx = iConfig.getParameter<bool>("doDeDx");
-  dEdxEstimator = iConfig.getParameter<std::string>("dEdxEstimator");
-    
+  //dEdxEstimator = iConfig.getParameter<std::string>("dEdxEstimator");//old original, pre-pat
+  
+  
+  //from PAT iso track
+  gt2dedxStrip_ = consumes<edm::ValueMap<reco::DeDxData> >(iConfig.getParameter<edm::InputTag>("dEdxDataStrip"));
+  gt2dedxPixel_ = consumes<edm::ValueMap<reco::DeDxData> >(iConfig.getParameter<edm::InputTag>("dEdxDataPixel"));
+  gt2dedxHitInfo_= consumes<reco::DeDxHitInfoAss>(iConfig.getParameter<edm::InputTag>("dEdxHitInfo"));
+  addPrescaledDeDxTracks_ = iConfig.getParameter<bool>("addPrescaledDeDxTracks");
+  gt2dedxHitInfoPrescale_ = addPrescaledDeDxTracks_ ? consumes<edm::ValueMap<int>>(iConfig.getParameter<edm::InputTag>("dEdxHitInfoPrescale")) : edm::EDGetTokenT<edm::ValueMap<int>>();
+  usePrecomputedDeDxStrip_ = iConfig.getParameter<bool>("usePrecomputedDeDxStrip");
+  usePrecomputedDeDxPixel_ = iConfig.getParameter<bool>("usePrecomputedDeDxPixel");
+  //from PAT iso track
 }
 
 
@@ -297,10 +344,59 @@ bool checkNoDeadNoisyECALInTrackCone(T hitcollection, reco::Track track, edm::ES
 // member functions
 //
 
+
+float IsoTrackProducer::getDeDx(const reco::DeDxHitInfo *hitInfo, bool doPixel, bool doStrip) const
+{
+    if(hitInfo == nullptr){
+        return -1;
+    }
+
+    std::vector<float> charge_vec;
+    for(unsigned int ih=0; ih<hitInfo->size(); ih++){
+
+        bool isPixel = (hitInfo->pixelCluster(ih) != nullptr);
+        bool isStrip = (hitInfo->stripCluster(ih) != nullptr);
+
+        if(isPixel && !doPixel) continue;
+        if(isStrip && !doStrip) continue;
+
+        // probably shouldn't happen
+        if(!isPixel && !isStrip) continue;
+
+        // shape selection for strips
+        if(isStrip && !DeDxTools::shapeSelection(*(hitInfo->stripCluster(ih))))
+            continue;
+        
+        float Norm=0;       
+        if(isPixel)
+            Norm = 3.61e-06; //compute the normalization factor to get the energy in MeV/mm
+        if(isStrip)
+            Norm = 3.61e-06 * 265;
+            
+        //save the dE/dx in MeV/mm to a vector.  
+        charge_vec.push_back(Norm*hitInfo->charge(ih)/hitInfo->pathlength(ih));           
+    }
+
+    int size = charge_vec.size();
+    float result = 0.0;
+
+    //build the harmonic 2 dE/dx estimator
+    float expo = -2;
+    for(int i=0; i<size; i++){
+        result += pow(charge_vec[i], expo);
+    }
+    result = (size>0) ? pow(result/size, 1./expo) : 0.0;
+
+    return result;
+}
+
+
+
 // ------------ method called to produce the data  ------------
 void IsoTrackProducer::produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const
 {
   using namespace edm;
+  using namespace std;  
   
   // register input collections:
   Handle<std::vector<reco::Track>> selectedTracks;
@@ -331,11 +427,36 @@ void IsoTrackProducer::produce(edm::StreamID, edm::Event& iEvent, const edm::Eve
  
   edm::Handle<edm::ValueMap<reco::DeDxData>> dEdxTrackHandle;
   edm::ValueMap<reco::DeDxData> dEdxTrack;
-  if (doDeDx)
+  edm::Handle<reco::DeDxHitInfoAss> dedxCollH;//Toby  
+  
+
+    // associate generalTracks with their DeDx data (estimator for strip dE/dx)
+    edm::Handle<edm::ValueMap<reco::DeDxData> > gt2dedxStrip;
+    iEvent.getByToken(gt2dedxStrip_, gt2dedxStrip);
+
+    // associate generalTracks with their DeDx data (estimator for pixel dE/dx)
+    edm::Handle<edm::ValueMap<reco::DeDxData> > gt2dedxPixel;
+    iEvent.getByToken(gt2dedxPixel_, gt2dedxPixel);
+
+    // associate generalTracks with their DeDx hit info (used to estimate pixel dE/dx)
+    edm::Handle<reco::DeDxHitInfoAss> gt2dedxHitInfo;
+    iEvent.getByToken(gt2dedxHitInfo_, gt2dedxHitInfo);
+    edm::Handle<edm::ValueMap<int>> gt2dedxHitInfoPrescale;
+    if (addPrescaledDeDxTracks_) {
+        iEvent.getByToken(gt2dedxHitInfoPrescale_, gt2dedxHitInfoPrescale);
+}
+
+  //edm::Handle<std::vector<reco::DeDxHitInfo>> dedxCollH;//Toby   modified
+  //edm::Handle<vector<reco::DeDxHitInfo>> dedxCollH;//Toby  
+  //edm::Handle<edm::Association<reco::DeDxHitInfoCollection>> dedxCollH;//Toby  modified
+  //edm::Handle<edm::Association<vector<reco::DeDxHitInfo> >> dedxCollH;//Toby modified
+  
+/*  if (doDeDx)
 {
   iEvent.getByLabel(dEdxEstimator, dEdxTrackHandle);
   dEdxTrack = *dEdxTrackHandle.product();
-}
+  iEvent.getByLabel("dedxHitInfo", dedxCollH);//Toby
+}//Original de/dx pre-pat*/ 
 
   edm::ESHandle<CaloGeometry> CaloGeomHandle;
   iSetup.get<CaloGeometryRecord>().get(CaloGeomHandle);
@@ -365,7 +486,8 @@ void IsoTrackProducer::produce(edm::StreamID, edm::Event& iEvent, const edm::Eve
   std::unique_ptr<std::vector<double> > selectedTracks_minDrLepton(new std::vector<double>);
   std::unique_ptr<std::vector<double> > selectedTracks_matchedCaloEnergy(new std::vector<double>);
   std::unique_ptr<std::vector<double> > selectedTracks_matchedCaloEnergyJets(new std::vector<double>);
-  std::unique_ptr<std::vector<double> > selectedTracks_deDxHarmonic2(new std::vector<double>);
+  std::unique_ptr<std::vector<double> > selectedTracks_deDxHarmonic2strips(new std::vector<double>);
+  std::unique_ptr<std::vector<double> > selectedTracks_deDxHarmonic2pixel(new std::vector<double>);  
   std::unique_ptr<std::vector<double> > selectedTracks_chargedPtSum(new std::vector<double>);
   std::unique_ptr<std::vector<double> > selectedTracks_neutralPtSum(new std::vector<double>);
   std::unique_ptr<std::vector<double> > selectedTracks_neutralWithoutGammaPtSum(new std::vector<double>);
@@ -446,9 +568,6 @@ void IsoTrackProducer::produce(edm::StreamID, edm::Event& iEvent, const edm::Eve
     bool passedminDrLepton = false;
     if (minDrLepton > minTrackLeptonDR) passedminDrLepton = true;
     selectedTracks_passExo16044LepIso->push_back(passedminDrLepton);
-    
-    
-    
     
     
     
@@ -554,12 +673,55 @@ void IsoTrackProducer::produce(edm::StreamID, edm::Event& iEvent, const edm::Eve
     if (missingOuterHits > minMissingOuterHits) passedMissingOuterHits = true;
 
   
-
     // save dE/dx:
-    double dedx = -1;
-    if (doDeDx) dedx = dEdxTrack[reco::TrackRef(selectedTracks, itrack)].dEdx();
-    selectedTracks_deDxHarmonic2->push_back(dedx);
+    
+    float dEdxPixel=-1, dEdxStrip=-1;//from pat
+            
 
+    if (doDeDx) 
+    {	
+        reco::TrackRef trackref = reco::TrackRef(selectedTracks, itrack);
+    	    	
+    	//Toby, Paul
+    	/*
+		const reco::DeDxHitInfo *dedxHits = NULL;
+		reco::DeDxHitInfoRef dedxHitsRef = dedxCollH->get(trackref.key());
+		if (!dedxHitsRef.isNull())
+        dedxHits = &(*dedxHitsRef);
+		std::cout << itrack <<  " de/dx info, track with pt= " <<  track.pt() << std::endl;        
+		if (dedxHits) {
+		for (unsigned int h = 0; h < dedxHits->size(); h++) {
+		DetId detid(dedxHits->detId(h)); //detid.subdetId() < 3 Pixel, detid.subdetId() >=3 Strip		
+    	std::cout << itrack <<  "detid.subdetId()=" << detid.subdetId() << " charge(h)=" << dedxHits->charge(h) << std::endl;
+    	}}
+    	*/
+    	//Toby, Paul 	
+
+	//from pat
+	        // if no dEdx info exists, just store -1
+
+        if(usePrecomputedDeDxStrip_ && gt2dedxStrip.isValid() && gt2dedxStrip->contains(trackref.id())){
+            dEdxStrip = (*gt2dedxStrip)[trackref].dEdx();
+        }else if(gt2dedxHitInfo.isValid() && gt2dedxHitInfo->contains(trackref.id())){
+            const reco::DeDxHitInfo* hitInfo = (*gt2dedxHitInfo)[trackref].get();
+            //dEdxStrip = pat::PATIsolatedTrackProducer::getDeDx(hitInfo, false, true);
+            dEdxStrip = getDeDx(hitInfo, false, true);            
+        }
+        if(usePrecomputedDeDxPixel_ && gt2dedxPixel.isValid() && gt2dedxPixel->contains(trackref.id())){
+            dEdxPixel = (*gt2dedxPixel)[trackref].dEdx();
+        }else if(gt2dedxHitInfo.isValid() && gt2dedxHitInfo->contains(trackref.id())){
+            const reco::DeDxHitInfo* hitInfo = (*gt2dedxHitInfo)[trackref].get();
+            //dEdxPixel = pat::PATIsolatedTrackProducer::getDeDx(hitInfo, true, false);
+            dEdxPixel = getDeDx(hitInfo, true, false);            
+        }
+	//end: from pat        
+        
+        
+    }
+    	
+	//std::cout <<  itrack << " summary of dedx; dEdxPixel=" << dEdxPixel << " dEdxStrip="<<dEdxStrip<< " and original dedx=" << std::endl;
+    selectedTracks_deDxHarmonic2strips->push_back(dEdxStrip);        
+    selectedTracks_deDxHarmonic2pixel->push_back(dEdxPixel);            
 
     // check if EXO-16-044 selection criteria are satisfied:
     if (passExo16044Kinematics && passExo16044GapsVeto && passExo16044DeadNoisyECALVeto && passedTrackTrackerIso &&
@@ -568,6 +730,10 @@ void IsoTrackProducer::produce(edm::StreamID, edm::Event& iEvent, const edm::Eve
     else selectedTracks_passExo16044Tag->push_back(false);
 
   }
+  
+
+
+  
 
   // save track collection in event:
   iEvent.put(std::move(tracks),                                 "tracks");
@@ -588,7 +754,8 @@ void IsoTrackProducer::produce(edm::StreamID, edm::Event& iEvent, const edm::Eve
   iEvent.put(std::move(selectedTracks_minDrLepton),                  "tracks@minDrLepton");
   iEvent.put(std::move(selectedTracks_matchedCaloEnergy),               "tracks@matchedCaloEnergy");
   iEvent.put(std::move(selectedTracks_matchedCaloEnergyJets),           "tracks@matchedCaloEnergyJets");
-  iEvent.put(std::move(selectedTracks_deDxHarmonic2),                   "tracks@deDxHarmonic2");
+  iEvent.put(std::move(selectedTracks_deDxHarmonic2strips),                   "tracks@deDxHarmonic2strips");
+  iEvent.put(std::move(selectedTracks_deDxHarmonic2pixel),                   "tracks@deDxHarmonic2pixel");  
   iEvent.put(std::move(selectedTracks_chargedPtSum),                    "tracks@chargedPtSum");
   iEvent.put(std::move(selectedTracks_neutralPtSum),                    "tracks@neutralPtSum");
   iEvent.put(std::move(selectedTracks_neutralWithoutGammaPtSum),        "tracks@neutralWithoutGammaPtSum");
