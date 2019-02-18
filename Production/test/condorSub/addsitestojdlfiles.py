@@ -56,7 +56,7 @@ for jdlname in jdlnamelist:
 	sites = ','.join(sitelist).replace('\n','')
 	line4jdl = '+DESIRED_Sites = "'+sites+'"'
 	block = block.replace('''# Queue''', \
-	'''+DESIRED_Sites = "T1_UK_RAL_Disk,T2_IN_TIFR"
+	'''+DESIRED_Sites = "'''+sites+'''"
 # Queue''')
 	print 'new block', block
 	os.system('mv '+jdlname+' unusedjdls/')
