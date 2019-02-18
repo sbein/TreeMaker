@@ -13,6 +13,7 @@ for jdlname in jdlnamelist:
 	fjdl = open(jdlname)
 	block = fjdl.read()
 	fjdl.close()
+	if 'DESIRED_Sites' in block: continue
 	scenariokey = block.split(' -j ')[-1].split()[0]
 	print 'key:', scenariokey
 	partialfilefilename = scenariokey.replace('.','/')+'_cff.py'
