@@ -52,6 +52,7 @@ for jdlname in jdlnamelist:
 	os.system('dasgoclient --query="site dataset='+datasetname+'" > '+scenariokey+'.txt')
 	sitefile = open(scenariokey+'.txt')
 	sitelist = sitefile.readlines()
+	#sitelist.reverse()
 	sitefile.close()
 	sites = ','.join(sitelist).replace('\n','')
 	line4jdl = '+DESIRED_Sites = "'+sites+'"'
