@@ -10,6 +10,7 @@ if not os.path.exists('unusedjdls'): os.system('mkdir unusedjdls')
 
 for jdlname in jdlnamelist:
 
+	print 'editing', jdlname
 	fjdl = open(jdlname)
 	block = fjdl.read()
 	fjdl.close()
