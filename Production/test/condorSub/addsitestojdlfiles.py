@@ -8,6 +8,16 @@ jdlnamelist = glob(jdlnamekey)
 if not os.path.exists('unusedjdls'): os.system('mkdir unusedjdls')
 
 
+'''
+python addsitestojdlfiles.py "*MET*.jdl" & 
+python addsitestojdlfiles.py "*JetHT*.jdl" &
+python addsitestojdlfiles.py "*SingleElectron*.jdl" &
+python addsitestojdlfiles.py "*SingleMuon*.jdl" &
+python addsitestojdlfiles.py "*SinglePhoton*.jdl" &
+python addsitestojdlfiles.py "*Summer16*.jdl" &
+python addsitestojdlfiles.py "*Fall17*.jdl" &
+'''
+
 for jdlname in jdlnamelist:
 
 	if not len(jdlname.split('_'))>1: continue
